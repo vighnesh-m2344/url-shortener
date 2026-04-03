@@ -4,8 +4,10 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const app = express();
-
 app.use(express.json());
+app.get("/", (req, res) => {
+  res.send("URL Shortener API is running 🚀");
+});
 
 // generate short id (safe version)
 function generateShortId() {
@@ -40,14 +42,15 @@ app.post("/shorten", async (req, res) => {
     });
 
     // create QR code for short URL
-    const shortUrl = `http://localhost:5000/${newUrl.shortId}`;
-    const qrCodeImage = await QRCode.toDataURL(shortUrl);
+    const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
+    const shortUrl = `${BASE_URL}/${shortId}`;
+    const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
 
     return res.json({
       shortUrl,
-      statsUrl: `http://localhost:5000/stats/${newUrl.shortId}`,
+      statsUrl: `${BASE_URL}/stats/${newUrl.shortId}`,
       qrCode: qrCodeImage,
-    });
+});
 
   } catch (err) {
     console.error(err);
