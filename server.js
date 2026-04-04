@@ -65,7 +65,8 @@ app.post("/shorten", async (req, res) => {
       qrCode: qrCodeImage,
     });
 
-  } catch (err) {
+  } 
+    catch (err) {
     console.error("ERROR:", err); // IMPORTANT
     return res.status(500).json({
       error: "Server error",
