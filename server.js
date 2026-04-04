@@ -66,8 +66,11 @@ app.post("/shorten", async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error" });
+    console.error("ERROR:", err); // IMPORTANT
+    return res.status(500).json({
+      error: "Server error",
+      message: err.message, //this will show real issue in Postman
+    });
   }
 });
 
