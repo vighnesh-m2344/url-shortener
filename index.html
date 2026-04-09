@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>URL Shortener</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .box {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 12px;
+      width: 400px;
+      text-align: center;
+    }
+
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border: none;
+    }
+
+    button {
+      padding: 10px 15px;
+      background: #38bdf8;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .result {
+      margin-top: 20px;
+      word-break: break-all;
+    }
+
+    img {
+      margin-top: 10px;
+      width: 150px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="box">
+    <h2>🔗 URL Shortener</h2>
+
+    <input id="url" placeholder="Enter URL" />
+    <input id="custom" placeholder="Custom ID (optional)" />
+
+    <button onclick="shorten()" id="btn">Shorten</button>
+
+    <div class="result" id="result"></div>
+  </div>
+
+<script>
+async function shorten() {
+  const originalUrl = document.getElementById("url").value.trim();
+  const customId = document.getElementById("custom").value.trim();
+  const resultDiv = document.getElementById("result");
+  const btn = document.getElementById("btn");
+
+if (!originalUrl) {
+  resultDiv.innerHTML = "❌ Please enter a URL";
+  return;
+}
+
+btn.innerText = "Generating...";
+
+  resultDiv.innerHTML = "⏳ Generating...";
+
+  try {
+    const res = await fetch("https://url-shortener-z980.onrender.com/shorten", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ originalUrl, customId })
+    });
+
+    const data = await res.json();
+    btn.innerText = "Shorten";
+
+    if (data.error) {
+      resultDiv.innerHTML = "❌ " + data.error;
+      return;
+    }
+
+    resultDiv.innerHTML = `
+      <p>✅ Short URL:</p>
+      <a href="${data.shortUrl}" target="_blank">${data.shortUrl}</a>
+      <br><br>
+      <button onclick="copyUrl('${data.shortUrl}')">Copy</button>
+
+      <p>📊 Stats:</p>
+      <a href="${data.statsUrl}" target="_blank">View Stats</a>
+
+      <p>📱 QR Code:</p>
+      <img src="${data.qrCode}" />
+    `;
+  } catch (err) {
+  resultDiv.innerHTML = "❌ Server error";
+  btn.innerText = "Shorten";
+}
+}
+
+function copyUrl(url) {
+  navigator.clipboard.writeText(url);
+  alert("Copied!");
+}
+</script>
+
+</body>
+</html>

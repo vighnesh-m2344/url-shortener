@@ -1,64 +1,74 @@
-const QRCode = require("qrcode");
 const express = require("express");
+const QRCode = require("qrcode");
+const cors = require("cors");
 const prisma = require("./prisma");
+
 const app = express();
 
-// ensure DB connection
+
+// DB CONNECT
 prisma.$connect()
   .then(() => console.log("Prisma connected"))
   .catch((err) => console.error("Prisma connection error:", err));
 
-// middleware
+
+// MIDDLEWARE
+app.use(cors());
 app.use(express.json());
 
+
 // BASE URL
-const BASE_URL = process.env.BASE_URL || "http://localhost:5000";
+const BASE_URL = process.env.BASE_URL || "https://url-shortener-z980.onrender.com";
+
 
 // ROOT
 app.get("/", (req, res) => {
   res.send("URL Shortener API is running");
 });
 
-// generate short id
+
+// SHORT ID GENERATOR
 function generateShortId() {
   return Math.random().toString(36).substring(2, 8);
 }
 
-// SHORTEN URL
+
+// SHORTEN URL API
 app.post("/shorten", async (req, res) => {
   try {
     const { originalUrl, customId } = req.body;
 
-    // validation
     if (!originalUrl) {
       return res.status(400).json({ error: "originalUrl is required" });
     }
 
-    // URL validation
+
+    // validate URL
     try {
       new URL(originalUrl);
     } catch {
       return res.status(400).json({ error: "Invalid URL format" });
     }
 
-    // Normalize customId
-    let shortId = customId
-      ? customId.trim().toLowerCase()
-      : generateShortId();
+    let baseId = customId?.trim().toLowerCase();
+    let shortId = baseId || generateShortId();
 
-    // Check duplicate
-    const existing = await prisma.url.findUnique({
-      where: { shortId },
-    });
+    let counter = 1;
 
-    if (existing) {
-      return res.status(400).json({
-        error: "Custom ID already taken",
-      });
+    
+    // UNIQUE ID
+    while (await prisma.url.findUnique({ where: { shortId } })) {
+      if (baseId) {
+        shortId = `${baseId}-${counter}`;
+        counter++;
+      } else {
+        shortId = generateShortId();
+      }
     }
 
+
     // save to DB
-    const newUrl = await prisma.url.create({
+    await prisma.url.create({
       data: {
         originalUrl,
         shortId,
@@ -66,8 +76,6 @@ app.post("/shorten", async (req, res) => {
     });
 
     const shortUrl = `${BASE_URL}/${shortId}`;
-
-    // QR code generation
     const qrCodeImage = await QRCode.toDataURL(shortUrl);
 
     return res.status(201).json({
@@ -77,21 +85,20 @@ app.post("/shorten", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("ERROR IN /shorten:", err);
-
-    return res.status(500).json({
-      error: "Internal Server Error",
-    });
+    console.error("SHORTEN ERROR:", err);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// STATS ROUTE
+
+// STATS API
 app.get("/stats/:shortId", async (req, res) => {
   try {
     const { shortId } = req.params;
 
     const url = await prisma.url.findUnique({
       where: { shortId },
+      include: { clicksLog: true },
     });
 
     if (!url) {
@@ -99,19 +106,22 @@ app.get("/stats/:shortId", async (req, res) => {
     }
 
     return res.json({
-      originalUrl: url.originalUrl,
       shortId: url.shortId,
+      originalUrl: url.originalUrl,
       clicks: url.clicks,
+      totalEvents: url.clicksLog.length,
+      clickHistory: url.clicksLog,
       createdAt: url.createdAt,
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("STATS ERROR:", err);
     return res.status(500).json({ error: "Server error" });
   }
 });
 
-// REDIRECT ROUTE
+
+// REDIRECT + TRACKING
 app.get("/:shortId", async (req, res) => {
   try {
     const { shortId } = req.params;
@@ -121,10 +131,11 @@ app.get("/:shortId", async (req, res) => {
     });
 
     if (!url) {
-      return res.status(404).json({ error: "URL not found" });
+      return res.status(404).send("URL not found");
     }
 
-    // Increment clicks
+
+    // increment clicks
     await prisma.url.update({
       where: { shortId },
       data: {
@@ -134,13 +145,22 @@ app.get("/:shortId", async (req, res) => {
       },
     });
 
+
+    // store click event
+    await prisma.clickEvent.create({
+      data: {
+        urlId: url.id,
+      },
+    });
+
     return res.redirect(url.originalUrl);
 
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error" });
+    console.error("REDIRECT ERROR:", err);
+    return res.status(500).send("Server error");
   }
 });
+
 
 // START SERVER
 const PORT = process.env.PORT || 5000;
