@@ -15,6 +15,7 @@ prisma.$connect()
 // MIDDLEWARE
 app.use(cors());
 app.use(express.json());
+app.set("trust proxy", 1);
 
 
 // BASE URL
@@ -153,7 +154,7 @@ app.get("/:shortId", async (req, res) => {
       },
     });
 
-    return res.redirect(url.originalUrl);
+    return res.redirect(302, url.originalUrl);
 
   } catch (err) {
     console.error("REDIRECT ERROR:", err);
